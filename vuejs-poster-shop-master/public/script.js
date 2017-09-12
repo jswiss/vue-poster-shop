@@ -1,27 +1,53 @@
+var PRICE = 9.99;
+var LOAD_NUM = 10;
+
 new Vue({
 	// tell Vue where to be anchored in the DOM
 	el: '#app',
 	data: {
 		total: 0,
-		items: [
-			{ id: 1, title: 'item 1', price: 14.99 },
-			{ id: 2, title: 'item 2', price: 4.99 },
-			{ id: 3, title: 'item 3', price: 9.99 },
-			{ id: 4, title: 'item 4', price: 25.99 },
-		],
+		items: [],
 		cart: [],
-		search: '',
+		results: [],
+		newSearch: 'hip hop',
+		lastSearch: '',
+		loading: false,
+		price: PRICE,
+	},
+	// computed properties are reactive, they are called constantly (think watchers)
+	computed: {
+		noMoreItems: function() {
+			return (
+				this.items.length === this.results.length && this.results.length > 0
+			);
+		},
 	},
 	methods: {
 		onSubmit: function() {
-			// console.log(this.$http);
-			this.$http.get('/search/'.concat(this.search)).then(function(res) {
-				this.items = res.data;
-			});
+			if (this.newSearch.length) {
+				this.items = [];
+				this.loading = true;
+				this.$http.get('/search/'.concat(this.newSearch)).then(function(res) {
+					this.lastSearch = this.newSearch;
+					this.results = res.data;
+					this.appendItems();
+					this.loading = false;
+				});
+			}
+		},
+		appendItems: function() {
+			if (this.items.length < this.results.length) {
+				var append = this.results.slice(
+					this.items.length,
+					this.items.length + LOAD_NUM
+				);
+				this.items = this.items.concat(append);
+			}
 		},
 		addItem: function(index) {
 			// console.log(this.items[index].price);
-			this.total += this.items[index].price;
+			// this.total += this.items[index].price;
+			this.total += PRICE;
 			var item = this.items[index];
 			var found = false;
 			for (var i = 0; i < this.cart.length; i++) {
@@ -37,17 +63,19 @@ new Vue({
 					id: item.id,
 					title: item.title,
 					qty: 1,
-					price: item.price,
+					price: PRICE,
 				});
 			}
 		},
 		inc: function(item) {
 			item.qty++;
-			this.total += item.price;
+			// this.total += item.price;
+			this.total += PRICE;
 		},
 		dec: function(item) {
 			item.qty--;
-			this.total -= item.price;
+			// this.total -= item.price;
+			this.total -= PRICE;
 			if (item.qty <= 0) {
 				for (var i = 0; i < this.cart.length; i++) {
 					if (this.cart[i].id === item.id) {
@@ -62,5 +90,15 @@ new Vue({
 		currency: function(price) {
 			return '$'.concat(price.toFixed(2));
 		},
+	},
+	mounted: function() {
+		this.onSubmit();
+
+		var vueInstance = this;
+		var elem = document.getElementById('product-list-bottom');
+		var watcher = scrollMonitor.create(elem);
+		watcher.enterViewport(function() {
+			vueInstance.appendItems();
+		});
 	},
 });
